@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="dark">
 <head>
@@ -127,9 +128,15 @@
   .ai-msg.system{font-size:.7rem;color:var(--text-muted);align-self:center;text-align:center;background:transparent;padding:4px}
   @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
   .ai-input-row{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0}
-  .ai-input-row textarea{flex:1;min-height:40px;max-height:80px;font-size:.76rem;resize:none;padding:7px 10px}
+  .ai-input-row textarea{flex:1;min-height:40px;max-height:200px;font-size:.76rem;resize:vertical;padding:7px 10px}
   .ai-loading{display:flex;align-items:center;gap:6px;padding:8px;font-size:.72rem;color:var(--text-muted)}
   .ai-loading .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  .ai-inject-btn{margin-top:8px}
+  .inject-card{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:var(--surface2)}
+  .inject-card .inject-card-head{font-size:.68rem;font-weight:700;color:var(--text-muted);margin-bottom:6px}
+  .inject-card .field-group{margin-bottom:8px}
+  .inject-card .field-group label{font-size:.68rem}
+  .radio-row{font-size:.72rem;display:flex;align-items:center;gap:4px;cursor:pointer}
   @keyframes spin{to{transform:rotate(360deg)}}
 
   /* Form Elements */
@@ -161,6 +168,8 @@
   .order-section{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px;transition:background .25s,border-color .25s}
   .order-chips{display:flex;flex-wrap:wrap;gap:6px}
   .order-chip{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:18px;background:var(--surface2);border:1px solid var(--border);font-size:.73rem}
+  .order-chip input.order-num-input{width:2.2em;min-width:0;padding:0 2px;text-align:center;font-size:.68rem;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--accent);font-weight:700;cursor:text}
+  .order-chip input.order-num-input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
   .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:100%;color:var(--text-muted);font-size:.85rem}
   .empty-state .icon{font-size:2.8rem}
   .toggle-enabled{width:12px;height:12px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);transition:background .15s,border-color .15s}
@@ -468,15 +477,23 @@
     <div class="right-pane" id="rpaneAI">
       <div style="padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em" id="aiPersonaLabel">🤖 山停 · 万能辅助</span>
-        <button class="btn btn-secondary btn-xs" onclick="clearAIChat()" title="清空对话">🗑</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-secondary btn-xs" onclick="openArchiveModal()" title="聊天存档：保存/载入对话">💾</button>
+          <button class="btn btn-secondary btn-xs" onclick="clearAIChat()" title="清空对话">🗑</button>
+        </div>
       </div>
       <div class="ai-chat-area" id="aiChatArea">
         <div class="ai-msg system">💡 在左侧编辑内容时，可在此与 AI 探讨写作思路。<br>点击「注入上下文」将当前编辑内容发送给 AI 作为参考。</div>
       </div>
+      <div style="display:flex;gap:6px;padding:4px 10px;flex-shrink:0;align-items:center">
+        <button class="btn btn-secondary btn-xs" onclick="injectContext()" title="将当前编辑内容发送给AI">📥 注入上下文</button>
+        <button class="btn btn-warning btn-xs" onclick="quickGenerateInject()" title="点击：将生成指令注入输入框，可编辑后发送">✨ 生成并注入</button>
+        <button class="btn btn-secondary btn-xs" onclick="openToolModal()" title="常用内容工具：前端/后端注入">🧰</button>
+        <span style="flex:1"></span>
+      </div>
       <div class="ai-input-row">
-        <button class="btn btn-secondary btn-xs" onclick="injectContext()" title="将当前编辑内容发送给AI" style="flex-shrink:0">📥 注入上下文</button>
         <textarea id="aiInput" placeholder="输入问题…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage()}"></textarea>
-        <button class="btn btn-primary btn-sm" onclick="sendAIMessage()" style="flex-shrink:0">▶</button>
+        <button class="btn btn-primary btn-sm" id="aiSendBtn" onclick="sendAIMessage()" style="flex-shrink:0">▶</button>
       </div>
     </div>
   </div>
@@ -505,6 +522,10 @@
       <div><span class="sub-label">Temperature (0~2)</span><input type="number" id="apiTemperature" value="0.7" min="0" max="2" step="0.01"/></div>
       <div><span class="sub-label">Top P (0~1)</span><input type="number" id="apiTopP" value="0.9" min="0" max="1" step="0.01"/></div>
     </div>
+    <div class="field-row">
+      <div><span class="sub-label">Frequency Penalty (-2~2)</span><input type="number" id="apiFreq" value="0" min="-2" max="2" step="0.1"/></div>
+      <div><span class="sub-label">Presence Penalty (-2~2)</span><input type="number" id="apiPresence" value="0" min="-2" max="2" step="0.1"/></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary btn-sm" onclick="testAPIConnection()" id="btnTestConn">🔍 测试连接</button>
       <span id="apiTestStatus" style="font-size:.72rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
@@ -520,12 +541,94 @@
     <h3 id="personaEditorTitle">✏️ 编辑系统提示词</h3>
     <textarea id="personaPromptEditor" rows="18" style="font-size:.76rem;line-height:1.6;min-height:320px"
       placeholder="输入自定义系统提示词…"></textarea>
+    <div style="margin:10px 0;padding-top:8px;border-top:1px solid var(--border)">
+      <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">🎛 采样参数（留空 = 跟随全局）</label>
+      <div class="field-row" style="margin-top:6px">
+        <div><span class="sub-label">temperature</span><input type="number" id="ppTemperature" min="0" max="2" step="0.01" placeholder="全局"/></div>
+        <div><span class="sub-label">top_p</span><input type="number" id="ppTopP" min="0" max="1" step="0.01" placeholder="全局"/></div>
+      </div>
+      <div class="field-row" style="margin-top:6px">
+        <div><span class="sub-label">max_tokens</span><input type="number" id="ppMaxTokens" min="256" max="128000" step="1" placeholder="全局"/></div>
+        <div><span class="sub-label">frequency_penalty</span><input type="number" id="ppFreq" min="-2" max="2" step="0.1" placeholder="不发送"/></div>
+        <div><span class="sub-label">presence_penalty</span><input type="number" id="ppPresence" min="-2" max="2" step="0.1" placeholder="不发送"/></div>
+      </div>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center">
       <button class="btn btn-warning btn-xs" onclick="resetPersonaPrompt()" title="恢复默认提示词">↩ 恢复默认</button>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary btn-sm" onclick="closePersonaEditor()">取消</button>
         <button class="btn btn-primary btn-sm" onclick="savePersonaPrompt()">💾 保存</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ AI 注入预览确认弹窗 ═══════ -->
+<div class="modal-overlay" id="injectModal" onclick="if(event.target===this)closeInjectModal()">
+  <div class="modal-dialog" onclick="event.stopPropagation()" style="width:620px;max-width:94vw">
+    <h3 id="injectModalTitle">📥 注入条目</h3>
+    <div id="injectCards" style="max-height:46vh;overflow-y:auto;margin-bottom:10px"></div>
+    <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-top:1px solid var(--border)">
+      <label style="font-size:.72rem;font-weight:700">注入方式：</label>
+      <label class="radio-row"><input type="radio" name="injectMode" id="injectModeAppend" value="append" checked onchange="pendingInjectMode='append'"/>追加为新条目</label>
+      <label class="radio-row"><input type="radio" name="injectMode" id="injectModeReplace" value="replace" onchange="pendingInjectMode='replace'"/>替换当前选中条目</label>
+      <label class="radio-row" id="injectModeBatchRow" style="display:none"><input type="radio" name="injectMode" id="injectModeBatch" value="batch" onchange="pendingInjectMode='batch'"/>批量替换所选 (<span id="injectBatchCount">0</span>)</label>
+    </div>
+    <div class="modal-actions">
+      <span id="injectHint" style="font-size:.68rem;color:var(--text-muted);flex:1"></span>
+      <button class="btn btn-secondary btn-sm" onclick="closeInjectModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="applyInject()">✅ 确认注入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 注入上下文多选弹窗 ═══════ -->
+<div class="modal-overlay" id="ctxPickModal" onclick="if(event.target===this)closeCtxPickModal()">
+  <div class="modal-dialog" onclick="event.stopPropagation()" style="width:540px;max-width:92vw">
+    <h3 id="ctxPickTitle">📥 注入上下文</h3>
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+      <span style="font-size:.72rem;color:var(--text-muted);flex:1">勾选要注入的条目（可多条）</span>
+      <button class="btn btn-secondary btn-xs" onclick="ctxPickSelectAll()">全选</button>
+      <button class="btn btn-secondary btn-xs" onclick="ctxPickClearAll()">取消</button>
+      <button class="btn btn-success btn-xs" onclick="injectSelectedCtx()">📥 注入所选</button>
+    </div>
+    <div id="ctxPickBody" style="max-height:46vh;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <span style="font-size:.68rem;color:var(--text-muted);flex:1">注入后将作为上下文供 AI 参考批量修改</span>
+      <button class="btn btn-secondary btn-sm" onclick="closeCtxPickModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 常用内容工具弹窗 ═══════ -->
+<div class="modal-overlay" id="toolModal" onclick="if(event.target===this)closeToolModal()">
+  <div class="modal-dialog" onclick="event.stopPropagation()" style="width:560px;max-width:92vw">
+    <h3>🧰 常用内容工具</h3>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input type="text" id="toolSearch" placeholder="🔍 搜索内容…" style="flex:1;font-size:.76rem" oninput="renderToolModal()"/>
+      <button class="btn btn-primary btn-xs" onclick="editToolItem(-1)">＋ 新增</button>
+      <button class="btn btn-success btn-xs" onclick="injectToolsToInput()">📥 注入输入框</button>
+    </div>
+    <div id="toolList" style="max-height:46vh;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <span style="font-size:.68rem;color:var(--text-muted);flex:1">前端 = 输入框最前 · 后端 = 输入框最后</span>
+      <button class="btn btn-secondary btn-sm" onclick="closeToolModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 聊天存档弹窗 ═══════ -->
+<div class="modal-overlay" id="archiveModal" onclick="if(event.target===this)closeArchiveModal()">
+  <div class="modal-dialog" onclick="event.stopPropagation()" style="width:540px;max-width:92vw">
+    <h3>💾 聊天存档</h3>
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+      <input type="text" id="archiveNote" placeholder="存档备注（可选）…" style="flex:1;font-size:.76rem"/>
+      <button class="btn btn-success btn-xs" onclick="saveChatArchive()">💾 存档当前对话</button>
+    </div>
+    <div id="archiveList" style="max-height:46vh;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <span style="font-size:.68rem;color:var(--text-muted);flex:1">共 <span id="archiveCount">0</span> 份存档</span>
+      <button class="btn btn-secondary btn-sm" onclick="closeArchiveModal()">关闭</button>
     </div>
   </div>
 </div>
@@ -581,8 +684,13 @@ let dragSrcIndex=-1, editorMode='preset', rightTab='preview';
 let presetBatchMode=false, presetBatchSet=new Set(); // 预设批量模式
 
 // AI 状态
-let aiConfig={baseUrl:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',maxTokens:2000,temperature:0.7,topP:0.9};
+let aiConfig={baseUrl:'https://api.openai.com/v1',apiKey:'',model:'gpt-4o',maxTokens:2000,temperature:0.7,topP:0.9,frequencyPenalty:0,presencePenalty:0};
 let aiMessages=[];
+let pendingInject=null,pendingInjectMode='append'; // AI 注入预览状态
+let aiAbort=null;              // 发送/暂停控制器
+let toolChecked=new Set();     // 🧰 常用内容勾选索引
+let ctxPicked=new Set();       // 📥 注入上下文勾选索引
+let pendingCtxIndices=[];      // 已注入上下文的条目索引（供批量替换）
 let aiLoading=false;
 let aiCurrentPersona='caelum';
 
@@ -791,6 +899,8 @@ function renderPresetBatchBar(){
     <button class="pb-batch-btn" style="background:color-mix(in srgb,var(--success) 12%,var(--surface2));color:var(--success);border:1px solid color-mix(in srgb,var(--success) 30%,var(--border))" onclick="presetBatchToggleEnabled(true)" ${n===0?'disabled':''}>✅ 启用</button>
     <button class="pb-batch-btn" style="background:color-mix(in srgb,var(--warning) 12%,var(--surface2));color:var(--warning);border:1px solid color-mix(in srgb,var(--warning) 30%,var(--border))" onclick="presetBatchToggleEnabled(false)" ${n===0?'disabled':''}>⏸ 禁用</button>
     <span style="flex:1"></span>
+    <button class="pb-batch-btn" style="background:color-mix(in srgb,var(--accent) 12%,var(--surface2));color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border))" onclick="presetBatchMove(-1)" ${n===0?'disabled':''}>⬆ 批量上移</button>
+    <button class="pb-batch-btn" style="background:color-mix(in srgb,var(--accent) 12%,var(--surface2));color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border))" onclick="presetBatchMove(1)" ${n===0?'disabled':''}>⬇ 批量下移</button>
     <button class="pb-batch-btn" style="background:color-mix(in srgb,var(--danger) 15%,var(--surface2));color:var(--danger);border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border))" onclick="presetBatchDelete()" ${n===0?'disabled':''}>🗑 批量删除</button>
   </div>`;
 }
@@ -836,6 +946,41 @@ function presetBatchToggleEnabled(on){
   toast((on?'✅ 已批量启用 ':'⏸ 已批量禁用 ')+presetBatchSet.size+' 个提示词');
 }
 
+function presetBatchMove(dir){
+  const indices=Array.from(presetBatchSet).sort((a,b)=>dir>0?b-a:a-b);
+  if(!indices.length) return;
+  let moved=false;
+  if(dir<0){ // move up — 升序处理，整块上移一格并保持相对顺序
+    indices.forEach(idx=>{
+      if(idx>0 && !presetBatchSet.has(idx-1)){
+        const tmp=state.prompts[idx];
+        state.prompts[idx]=state.prompts[idx-1];
+        state.prompts[idx-1]=tmp;
+        presetBatchSet.delete(idx); presetBatchSet.add(idx-1);
+        moved=true;
+      }
+    });
+  }else{ // move down — 降序处理，整块下移一格并保持相对顺序
+    indices.forEach(idx=>{
+      if(idx<state.prompts.length-1 && !presetBatchSet.has(idx+1)){
+        const tmp=state.prompts[idx];
+        state.prompts[idx]=state.prompts[idx+1];
+        state.prompts[idx+1]=tmp;
+        presetBatchSet.delete(idx); presetBatchSet.add(idx+1);
+        moved=true;
+      }
+    });
+  }
+  if(moved){
+    if(selectedIndex>=0&&selectedIndex<state.prompts.length){
+      const id=state.prompts[selectedIndex].identifier;
+      selectedIndex=state.prompts.findIndex(p=>p.identifier===id);
+    }
+    syncPromptOrder();renderEditor();updatePreview();
+  }
+  else toast('⚠️ 所选条目已到达边缘');
+}
+
 function renderPromptDetail(p,idx){
   const macros=['{{char}}','{{user}}','{{personality}}','{{description}}','{{scenario}}','{{mesExamples}}','{{history}}','{{group}}'];
   return `
@@ -857,7 +1002,7 @@ function renderPromptDetail(p,idx){
     <div class="field-group"><label>内容 (content)</label>
       <textarea rows="10" id="contentArea" placeholder="在此输入提示词内容…" oninput="updateField('content',this.value)">${escHtml(p.content)}</textarea>
       <div class="macro-strip">${macros.map(m=>`<button class="btn btn-secondary btn-xs" onclick="insertMacro('${m}')">${m}</button>`).join('')}</div></div>
-    <div class="order-section"><label>Prompt Order · 队列顺序预览</label><p style="font-size:.73rem;color:var(--text-muted);margin-bottom:8px">拖拽列表可调整顺序</p><div class="order-chips">${(state.prompt_order[0]?.order||[]).map((o,i)=>{const f=state.prompts.find(pp=>pp.identifier===o.identifier);return`<div class="order-chip" title="${escHtml(o.identifier)}"><span style="color:var(--text-muted);font-size:.65rem">#${i+1}</span><span>${f?escHtml(f.name):escHtml(o.identifier)}</span><span class="toggle-enabled ${o.enabled?'on':'off'}" style="width:8px;height:8px"></span></div>`;}).join('')}</div></div>
+    <div class="order-section"><label>Prompt Order · 队列顺序预览</label><p style="font-size:.73rem;color:var(--text-muted);margin-bottom:8px">拖拽可调整顺序 · 点击序号数字可直接修改</p><div class="order-chips">${(state.prompt_order[0]?.order||[]).map((o,i)=>{const f=state.prompts.find(pp=>pp.identifier===o.identifier);return`<div class="order-chip" title="${escHtml(o.identifier)}"><input class="order-num-input" type="text" inputmode="numeric" value="${i+1}" title="修改序号后自动重排" onchange="setOrderNumber(${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" onclick="event.stopPropagation()"><span>${f?escHtml(f.name):escHtml(o.identifier)}</span><span class="toggle-enabled ${o.enabled?'on':'off'}" style="width:8px;height:8px"></span></div>`;}).join('')}</div></div>
     <div style="display:flex;justify-content:flex-end"><button class="btn btn-danger btn-sm" onclick="deletePrompt()">🗑 删除此提示词</button></div>`;
 }
 
@@ -865,6 +1010,23 @@ function updateField(key,value){if(selectedIndex<0)return;state.prompts[selected
 function updateEntryName(val){var item=document.getElementById('pitem_'+selectedIndex);if(item){var nd=item.querySelector('.entry-title');if(nd)nd.textContent=val||'未命名'}}
 function insertMacro(m){const ta=document.getElementById('contentArea');if(!ta)return;const s=ta.selectionStart,e=ta.selectionEnd,v=ta.value;ta.value=v.substring(0,s)+m+v.substring(e);ta.selectionStart=ta.selectionEnd=s+m.length;updateField('content',ta.value);ta.focus()}
 function syncPromptOrder(){const m={};(state.prompt_order[0]?.order||[]).forEach(o=>{m[o.identifier]=o.enabled});state.prompt_order[0]={character_id:state.prompt_order[0]?.character_id??100001,order:state.prompts.map(p=>({identifier:p.identifier,enabled:m[p.identifier]!==undefined?m[p.identifier]:p.enabled}))}}
+function setOrderNumber(idx,val){
+  const order=state.prompt_order[0]?.order||[];
+  const n=order.length;
+  if(n===0)return;
+  const parsed=parseInt(val,10);
+  const target=Math.max(1,Math.min(n,isNaN(parsed)?idx+1:parsed));
+  if(target===idx+1){renderEditor();return;}
+  const item=order[idx];
+  const pIdx=item?state.prompts.findIndex(pp=>pp.identifier===item.identifier):-1;
+  if(pIdx<0){renderEditor();return;}
+  const p=state.prompts.splice(pIdx,1)[0];
+  state.prompts.splice(target-1,0,p);
+  selectedIndex=target-1;
+  syncPromptOrder();
+  renderEditor();updatePreview();
+  toast('↕ 已调整队列顺序');
+}
 function addPrompt(){const p=makePrompt(Date.now());if(selectedIndex>=0&&selectedIndex<state.prompts.length){state.prompts.splice(selectedIndex+1,0,p);selectedIndex++}else{state.prompts.push(p);selectedIndex=state.prompts.length-1}syncPromptOrder();if(editorMode!=='preset')switchEditorMode('preset');else renderEditor();updatePreview();toast('✅ 已添加提示词')}
 function deletePrompt(){if(selectedIndex<0)return;state.prompts.splice(selectedIndex,1);syncPromptOrder();selectedIndex=Math.min(selectedIndex,state.prompts.length-1);renderEditor();updatePreview();toast('🗑 已删除')}
 
@@ -1690,6 +1852,8 @@ function openAPISettings(){
   document.getElementById('apiMaxTokens').value=c.maxTokens||2000;
   document.getElementById('apiTemperature').value=c.temperature??0.7;
   document.getElementById('apiTopP').value=c.topP??0.9;
+  document.getElementById('apiFreq').value=c.frequencyPenalty||0;
+  document.getElementById('apiPresence').value=c.presencePenalty||0;
   document.getElementById('apiModelStatus').textContent='';
   document.getElementById('apiTestStatus').textContent='';
   document.getElementById('apiModal').classList.add('show');
@@ -1702,6 +1866,8 @@ function saveAPISettings(){
   aiConfig.maxTokens=parseInt(document.getElementById('apiMaxTokens').value)||2000;
   aiConfig.temperature=parseFloat(document.getElementById('apiTemperature').value)??0.7;
   aiConfig.topP=parseFloat(document.getElementById('apiTopP').value)??0.9;
+  aiConfig.frequencyPenalty=parseFloat(document.getElementById('apiFreq').value)||0;
+  aiConfig.presencePenalty=parseFloat(document.getElementById('apiPresence').value)||0;
   if(!aiConfig.model){toast('⚠️ 请先选择模型');return}
   saveAIConfigToStorage();
   closeAPISettings();
@@ -1769,6 +1935,7 @@ function loadAIConfig(){
     Object.keys(AI_PERSONAS).forEach(key=>{
       const custom=loadCustomPrompt(key);
       if(custom) AI_PERSONAS[key].prompt=custom;
+      try{const ps=localStorage.getItem('st_persona_params_'+key);if(ps)AI_PERSONAS[key].params=JSON.parse(ps)}catch(e){}
     });
   }catch(e){}
 }
@@ -1789,12 +1956,21 @@ function clearAIChat(){
 }
 
 /* ── 提示词编辑器 ── */
+function numPersonaParam(id,min,max){const el=document.getElementById(id);if(!el)return null;const v=el.value.trim();if(v==='')return null;const n=parseFloat(v);if(isNaN(n))return null;return Math.max(min,Math.min(max,n))}
+function collectPersonaParams(){return{temperature:numPersonaParam('ppTemperature',0,2),top_p:numPersonaParam('ppTopP',0,1),max_tokens:numPersonaParam('ppMaxTokens',256,128000),frequency_penalty:numPersonaParam('ppFreq',-2,2),presence_penalty:numPersonaParam('ppPresence',-2,2)}}
+function fillPersonaParams(params){
+  const p=params||{};
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v??'')};
+  set('ppTemperature',p.temperature);set('ppTopP',p.top_p);set('ppMaxTokens',p.max_tokens);set('ppFreq',p.frequency_penalty);set('ppPresence',p.presence_penalty);
+}
+function getPersonaParams(key){return(AI_PERSONAS[key]&&AI_PERSONAS[key].params)||{}}
 function editPersonaPrompt(){
   const persona=AI_PERSONAS[aiCurrentPersona];
   // 优先使用用户自定义的版本
   const custom=loadCustomPrompt(aiCurrentPersona);
   document.getElementById('personaEditorTitle').textContent=`✏️ 编辑：${persona.name}`;
   document.getElementById('personaPromptEditor').value=custom||persona.prompt;
+  fillPersonaParams(persona.params);
   document.getElementById('personaModal').classList.add('show');
 }
 function closePersonaEditor(){document.getElementById('personaModal').classList.remove('show')}
@@ -1804,6 +1980,8 @@ function savePersonaPrompt(){
   saveCustomPrompt(aiCurrentPersona,text);
   // 立即生效——更新内存中的提示词
   AI_PERSONAS[aiCurrentPersona].prompt=text;
+  AI_PERSONAS[aiCurrentPersona].params=collectPersonaParams();
+  try{localStorage.setItem('st_persona_params_'+aiCurrentPersona,JSON.stringify(AI_PERSONAS[aiCurrentPersona].params))}catch(e){}
   closePersonaEditor();
   toast(`✅ ${AI_PERSONAS[aiCurrentPersona].name} 的提示词已保存`);
 }
@@ -1834,12 +2012,70 @@ function getCurrentContext(){
 }
 
 function injectContext(){
-  const ctx=getCurrentContext();
+  openCtxPickModal();
+}
+
+/* ── 📥 注入上下文多选 ── */
+function getModeEntryList(){
+  if(editorMode==='preset')return state.prompts;
+  if(editorMode==='worldbook')return state.worldbook_entries;
+  if(editorMode==='regex')return state.regex_entries;
+  if(editorMode==='charcard')return state.charcards;
+  if(editorMode==='editdesk')return editDesk.workingEntries;
+  return null;
+}
+function getEntryLabel(mode,entry){
+  if(mode==='preset')return entry.name||'未命名';
+  if(mode==='worldbook')return entry.comment||entry.keys||'未命名';
+  if(mode==='regex')return entry.scriptName||'未命名';
+  if(mode==='charcard')return entry.name||'未命名';
+  if(mode==='editdesk')return getEntryLabel(editDesk.mode==='worldbook'?'worldbook':'preset',entry);
+  return '条目';
+}
+function getEntryContext(mode,entry,idx){
+  if(mode==='preset')return`【预设提示词 #${idx+1}】\n名称：${entry.name}\n角色：${entry.role}\n内容：\n${entry.content}`;
+  if(mode==='worldbook')return`【世界书条目 #${idx+1}】\n触发词：${entry.keys}\n内容：\n${entry.content}`;
+  if(mode==='regex')return`【正则条目 #${idx+1}】\n名称：${entry.scriptName}\n匹配：${entry.findRegex}\n替换：${entry.replaceString}`;
+  if(mode==='charcard')return`【角色卡 #${idx+1}】\n名称：${entry.name}\n描述：${entry.description}\n性格：${entry.personality}\n场景：${entry.scenario}\n开场白：${entry.first_mes}`;
+  if(mode==='editdesk')return getEntryContext(editDesk.mode==='worldbook'?'worldbook':'preset',entry,idx);
+  return '';
+}
+function openCtxPickModal(){document.getElementById('ctxPickModal').classList.add('show');renderCtxPickModal()}
+function closeCtxPickModal(){document.getElementById('ctxPickModal').classList.remove('show')}
+function renderCtxPickModal(){
+  const list=getModeEntryList();
+  const mode=resolveInjectMode();
+  const body=document.getElementById('ctxPickBody');
+  if(!body)return;
+  if(!list||!list.length){body.innerHTML='<p style="color:var(--text-muted);font-size:.74rem;padding:20px;text-align:center">当前模式没有可注入的条目</p>';return}
+  body.innerHTML=list.map((e,i)=>{
+    const label=getEntryLabel(mode,e);
+    return`<div class="inject-card" style="display:flex;gap:8px;align-items:center;cursor:pointer" onclick="toggleCtxPick(${i})">
+      <input type="checkbox" ${ctxPicked.has(i)?'checked':''} onclick="event.stopPropagation();toggleCtxPick(${i})" style="accent-color:var(--accent)"/>
+      <div style="flex:1;min-width:0;font-size:.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(label)}</div>
+      <span style="font-size:.62rem;color:var(--text-muted)">#${i+1}</span>
+    </div>`;
+  }).join('');
+}
+function toggleCtxPick(i){if(ctxPicked.has(i))ctxPicked.delete(i);else ctxPicked.add(i);renderCtxPickModal()}
+function ctxPickSelectAll(){const list=getModeEntryList();if(!list)return;list.forEach((_,i)=>ctxPicked.add(i));renderCtxPickModal()}
+function ctxPickClearAll(){ctxPicked=new Set();renderCtxPickModal()}
+function injectSelectedCtx(){
+  const mode=resolveInjectMode();
+  const list=getModeEntryList();
+  if(!list||!mode){toast('⚠ 当前模式不支持注入上下文');return}
+  const idxs=Array.from(ctxPicked).filter(i=>i>=0&&i<list.length).sort((a,b)=>a-b);
+  if(!idxs.length){toast('⚠ 请先勾选要注入的条目');return}
+  pendingCtxIndices=idxs;
+  const ctxParts=idxs.map(i=>getEntryContext(mode,list[i],i));
+  const ctx=ctxParts.join('\n\n');
   const chatArea=document.getElementById('aiChatArea');
-  const msgDiv=document.createElement('div');msgDiv.className='ai-msg system';msgDiv.textContent=`📥 已注入当前编辑上下文：\n${ctx}`;
+  const msgDiv=document.createElement('div');msgDiv.className='ai-msg system';msgDiv.textContent=`📥 已注入 ${idxs.length} 条编辑上下文：\n${ctx}`;
   chatArea.appendChild(msgDiv);chatArea.scrollTop=chatArea.scrollHeight;
-  aiMessages.push({role:'system',content:`以下为当前编辑内容参考：\n${ctx}`});
-  toast('📥 上下文已注入')
+  aiMessages.push({role:'system',content:`以下为 ${idxs.length} 条编辑内容参考（按顺序，可据此批量修改）：\n${ctx}`});
+  ctxPicked=new Set();
+  closeCtxPickModal();
+  toast(`📥 已注入 ${idxs.length} 条上下文`);
 }
 
 async function sendAIMessage(){
@@ -1859,6 +2095,8 @@ async function sendAIMessage(){
   const loadDiv=document.createElement('div');loadDiv.className='ai-loading';loadDiv.innerHTML='<div class="spinner"></div><span>AI 思考中…</span>';
   chatArea.appendChild(loadDiv);chatArea.scrollTop=chatArea.scrollHeight;
   aiLoading=true;
+  aiAbort=new AbortController();
+  updateAISendBtn(true);
 
   try{
     const persona=AI_PERSONAS[aiCurrentPersona]||AI_PERSONAS.caelum;
@@ -1867,31 +2105,395 @@ async function sendAIMessage(){
     const lastUser=aiMessages.filter(m=>m.role==='user').slice(-6);
     messages.push(...lastSys,...lastUser);
 
+    const pparams=getPersonaParams(aiCurrentPersona);
+    const reqBody={
+      model:aiConfig.model,
+      messages:messages,
+      max_tokens:pparams.max_tokens??(aiConfig.maxTokens||2000),
+      temperature:pparams.temperature??aiConfig.temperature??0.7,
+      top_p:pparams.top_p??aiConfig.topP??0.9,
+      frequency_penalty:pparams.frequency_penalty??aiConfig.frequencyPenalty??0,
+      presence_penalty:pparams.presence_penalty??aiConfig.presencePenalty??0
+    };
     const resp=await fetch(`${aiConfig.baseUrl}/chat/completions`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${aiConfig.apiKey}`},
-      body:JSON.stringify({
-        model:aiConfig.model,
-        messages:messages,
-        max_tokens:aiConfig.maxTokens||2000,
-        temperature:aiConfig.temperature??0.7,
-        top_p:aiConfig.topP??0.9
-      })
+      body:JSON.stringify(reqBody),
+      signal:aiAbort.signal
     });
     if(!resp.ok){const err=await resp.text();throw new Error(`HTTP ${resp.status}: ${err}`)}
     const data=await resp.json();
     const reply=data.choices?.[0]?.message?.content||'(空回复)';
     loadDiv.remove();
     const botDiv=document.createElement('div');botDiv.className='ai-msg assistant';botDiv.textContent=reply;
+    const injMode=resolveInjectMode();
+    const inj=injMode?parseAIReply(reply):null;
+    if(inj&&inj.length){
+      pendingInject={mode:injMode,entries:inj,modeName:getModeName(injMode)};
+      pendingInjectMode='append';
+      const btn=document.createElement('button');
+      btn.className='btn btn-primary btn-xs ai-inject-btn';
+      btn.textContent='📥 注入到当前编辑器';
+      btn.onclick=openInjectModal;
+      botDiv.appendChild(btn);
+    }
     chatArea.appendChild(botDiv);aiMessages.push({role:'assistant',content:reply});
     chatArea.scrollTop=chatArea.scrollHeight;
   }catch(e){
     loadDiv.remove();
-    const errDiv=document.createElement('div');errDiv.className='ai-msg system';errDiv.textContent=`❌ 请求失败：${e.message}`;
-    chatArea.appendChild(errDiv);
-    chatArea.scrollTop=chatArea.scrollHeight;
+    if(e.name==='AbortError'){
+      const abDiv=document.createElement('div');abDiv.className='ai-msg system';abDiv.textContent='⏸ 已暂停生成';
+      chatArea.appendChild(abDiv);chatArea.scrollTop=chatArea.scrollHeight;
+    }else{
+      const errDiv=document.createElement('div');errDiv.className='ai-msg system';errDiv.textContent=`❌ 请求失败：${e.message}`;
+      chatArea.appendChild(errDiv);
+      chatArea.scrollTop=chatArea.scrollHeight;
+    }
   }
   aiLoading=false;
+  aiAbort=null;
+  updateAISendBtn(false);
+}
+
+/* ── AI 注入：解析、预览、同步到当前编辑器 ── */
+function getModeName(mode){return{preset:'预设',worldbook:'世界书',regex:'正则',charcard:'角色卡',editdesk:'编辑台'}[mode]||''}
+function resolveInjectMode(){
+  if(editorMode==='editdesk')return(editDesk.mode==='worldbook'||editDesk.mode==='preset')?'editdesk':null;
+  return(['preset','worldbook','regex','charcard'].includes(editorMode))?editorMode:null;
+}
+function extractJSON(reply){
+  const t=String(reply??'').trim();
+  if(!t)return null;
+  try{const j=JSON.parse(t);if(Array.isArray(j))return j;if(j&&typeof j==='object')return[j]}catch(e){}
+  const m=t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const cand=m?m[1].trim():'';
+  if(cand){try{const j=JSON.parse(cand);if(Array.isArray(j))return j;if(j&&typeof j==='object')return[j]}catch(e){}}
+  const s=t.indexOf('['),e=t.lastIndexOf(']');
+  if(s>=0&&e>s){try{const j=JSON.parse(t.substring(s,e+1));if(Array.isArray(j))return j}catch(e){}}
+  return null;
+}
+function normalizeEntry(item,mode){
+  if(!item||typeof item!=='object'||Array.isArray(item))return null;
+  if(mode==='preset'){
+    let id=Date.now();while(state.prompts.some(p=>p.identifier===`prompt_${id}`))id++;
+    const base=makePrompt(id);
+    return Object.assign({},base,{name:item.name||base.name,role:['system','user','assistant'].includes(item.role)?item.role:base.role,content:item.content||'',enabled:item.enabled!==false});
+  }
+  if(mode==='worldbook'){
+    let id=Date.now();while(state.worldbook_entries.some(e=>e.uid===`wb_${id}`))id++;
+    const base=makeWorldBookEntry(id);
+    return Object.assign({},base,{keys:item.keys||'',content:item.content||'',comment:item.comment||'',enabled:item.enabled!==false});
+  }
+  if(mode==='regex'){
+    let id=Date.now();while(state.regex_entries.some(e=>e.uid===`regex_${id}`))id++;
+    const base=makeRegexEntry(id);
+    return Object.assign({},base,{scriptName:item.scriptName||base.scriptName,findRegex:item.findRegex||'',replaceString:item.replaceString||'',disabled:item.enabled===false?true:(item.disabled||false)});
+  }
+  if(mode==='charcard'){
+    let id=Date.now();while(state.charcards.some(c=>c.id===`cc_${id}`))id++;
+    const base=makeCharCard(id);
+    return Object.assign({},base,{name:item.name||base.name,description:item.description||'',personality:item.personality||'',scenario:item.scenario||'',first_mes:item.first_mes||'',mes_example:item.mes_example||'',system_prompt:item.system_prompt||'',creator_notes:item.creator_notes||'',creator:item.creator||''});
+  }
+  if(mode==='editdesk')return normalizeEntry(item,editDesk.mode==='worldbook'?'worldbook':'preset');
+  return null;
+}
+function parseAIReply(reply){
+  try{
+    const arr=extractJSON(reply);
+    if(!arr||!arr.length)return null;
+    const mode=resolveInjectMode();
+    const entries=arr.map(item=>normalizeEntry(item,mode)).filter(Boolean);
+    return entries.length?entries:null;
+  }catch(e){return null}
+}
+function getInjectTarget(mode){
+  if(mode==='preset')return{arr:state.prompts,sel:selectedIndex,setSel:i=>{selectedIndex=i},render:renderEditor,label:'预设'};
+  if(mode==='worldbook')return{arr:state.worldbook_entries,sel:selectedWBIndex,setSel:i=>{selectedWBIndex=i},render:renderWorldBookEditor,label:'世界书'};
+  if(mode==='regex')return{arr:state.regex_entries,sel:selectedRegexIndex,setSel:i=>{selectedRegexIndex=i},render:renderRegexEditor,label:'正则'};
+  if(mode==='charcard')return{arr:state.charcards,sel:selectedCharCardIndex,setSel:i=>{selectedCharCardIndex=i},render:renderCharCardEditor,label:'角色卡'};
+  if(mode==='editdesk')return{arr:editDesk.workingEntries,sel:editDesk.selectedWorkingIndex,setSel:i=>{editDesk.selectedWorkingIndex=i},render:renderEditDesk,label:'编辑台'};
+  return null;
+}
+function preserveIdKey(oldE,newE){
+  if(oldE.identifier!==undefined)newE.identifier=oldE.identifier;
+  if(oldE.uid!==undefined)newE.uid=oldE.uid;
+  if(oldE.id!==undefined)newE.id=oldE.id;
+  return newE;
+}
+function buildInjectPrompt(){
+  const ctx=getCurrentContext();
+  const jsonNote='仅输出一个 JSON 数组，不要输出任何其他文字或代码块。';
+  let prompt='';
+  if(editorMode==='preset')prompt=`请生成若干条【预设提示词】条目，内容要完整、直接了当。${jsonNote}每项字段：name(显示名称)、role(system/user/assistant)、content(完整内容)、enabled(true/false)。`;
+  else if(editorMode==='worldbook')prompt=`请生成若干条【世界书】条目，内容要完整、直接了当。${jsonNote}每项字段：keys(触发词，英文逗号分隔)、content(完整内容)、comment(注释)、enabled(true/false)。`;
+  else if(editorMode==='regex')prompt=`请生成若干条【正则】条目，${jsonNote}每项字段：scriptName(名称)、findRegex(匹配正则)、replaceString(替换文本)、enabled(true/false)。`;
+  else if(editorMode==='charcard')prompt=`请生成 1 条完整的【角色卡】，内容要完整、直接了当。${jsonNote}每项字段：name、description、personality、scenario、first_mes、mes_example、system_prompt、creator_notes。`;
+  else if(editorMode==='editdesk'){
+    if(editDesk.mode==='worldbook')prompt=`请生成若干条【世界书】条目（用于编辑台），内容要完整、直接了当。${jsonNote}每项字段：keys、content、comment、enabled。`;
+    else if(editDesk.mode==='preset')prompt=`请生成若干条【预设提示词】条目（用于编辑台），内容要完整、直接了当。${jsonNote}每项字段：name、role、content、enabled。`;
+    else{toast('⚠ 当前编辑台条目类型不支持注入');return null}
+  }
+  else{toast('⚠ 当前模式不支持注入');return null}
+  return `${prompt}\n\n当前编辑上下文参考：\n${ctx}`;
+}
+function quickGenerateInject(){
+  if(!aiConfig.apiKey){toast('⚠ 请先点击「🔌 API设置」配置 API Key');return}
+  const p=buildInjectPrompt();
+  if(!p)return;
+  const input=document.getElementById('aiInput');
+  input.value=p;
+  input.focus();
+  toast('📥 已注入生成指令到输入框，可编辑后发送');
+}
+function updateAISendBtn(loading){
+  const b=document.getElementById('aiSendBtn');
+  if(!b)return;
+  b.textContent=loading?'⏸':'▶';
+  b.className=loading?'btn btn-warning btn-sm':'btn btn-primary btn-sm';
+  b.title=loading?'暂停当前请求':'发送';
+  b.onclick=loading?abortAIChat:sendAIMessage;
+}
+function abortAIChat(){
+  if(aiAbort){aiAbort.abort();aiAbort=null}
+  else{
+    const ld=document.querySelector('#aiChatArea .ai-loading');if(ld)ld.remove();
+    updateAISendBtn(false);
+  }
+}
+function renderInjectCard(e,i,mode){
+  const edWb=(mode==='editdesk'&&editDesk.mode==='worldbook');
+  const edPr=(mode==='editdesk'&&editDesk.mode==='preset');
+  const isWb=(mode==='worldbook')||edWb;
+  const isPr=(mode==='preset')||edPr;
+  let h=`<div class="inject-card"><div class="inject-card-head">条目 #${i+1}</div>`;
+  const field=(label,key,type)=>{
+    if(type==='textarea')return`<div class="field-group"><label>${label}</label><textarea rows="3" oninput="updatePendingEntry(${i},'${key}',this.value)">${escHtml(e[key]??'')}</textarea></div>`;
+    if(type==='select')return`<div class="field-group"><label>${label}</label><select onchange="updatePendingEntry(${i},'${key}',this.value)"><option value="system" ${e[key]==='system'?'selected':''}>system</option><option value="user" ${e[key]==='user'?'selected':''}>user</option><option value="assistant" ${e[key]==='assistant'?'selected':''}>assistant</option></select></div>`;
+    return`<div class="field-group"><label>${label}</label><input type="text" value="${escHtml(e[key]??'')}" oninput="updatePendingEntry(${i},'${key}',this.value)"/></div>`;
+  };
+  if(isPr)h+=field('显示名称','name')+field('角色','role','select')+field('内容','content','textarea')+`<div class="checkbox-row"><input type="checkbox" id="inj_${i}_en" ${e.enabled!==false?'checked':''} onchange="updatePendingEntry(${i},'enabled',this.checked)"/><label for="inj_${i}_en">启用</label></div>`;
+  else if(isWb)h+=field('触发词','keys')+field('注释','comment')+field('内容','content','textarea')+`<div class="checkbox-row"><input type="checkbox" id="inj_${i}_en" ${e.enabled!==false?'checked':''} onchange="updatePendingEntry(${i},'enabled',this.checked)"/><label for="inj_${i}_en">启用</label></div>`;
+  else if(mode==='regex')h+=field('名称','scriptName')+field('匹配正则','findRegex')+field('替换文本','replaceString')+`<div class="checkbox-row"><input type="checkbox" id="inj_${i}_en" ${!e.disabled?'checked':''} onchange="updatePendingEntry(${i},'disabled',!this.checked)"/><label for="inj_${i}_en">启用</label></div>`;
+  else if(mode==='charcard')h+=field('名称','name')+field('描述','description','textarea')+field('性格','personality','textarea')+field('场景','scenario','textarea')+field('开场白','first_mes','textarea')+field('对话示例','mes_example','textarea')+field('系统提示','system_prompt','textarea')+field('创作者备注','creator_notes','textarea')+`<div class="checkbox-row"><input type="checkbox" id="inj_${i}_en" ${e.enabled!==false?'checked':''} onchange="updatePendingEntry(${i},'enabled',this.checked)"/><label for="inj_${i}_en">启用</label></div>`;
+  h+=`</div>`;
+  return h;
+}
+function openInjectModal(){
+  if(!pendingInject)return;
+  const mode=pendingInject.mode;
+  const tgt=getInjectTarget(mode);
+  const canReplace=tgt&&tgt.sel>=0&&tgt.sel<tgt.arr.length;
+  document.getElementById('injectModalTitle').textContent=`📥 注入到${pendingInject.modeName||''}（${pendingInject.entries.length} 条）`;
+  document.getElementById('injectCards').innerHTML=pendingInject.entries.map((e,i)=>renderInjectCard(e,i,mode)).join('');
+  document.getElementById('injectModeReplace').disabled=!canReplace;
+  const batchRow=document.getElementById('injectModeBatchRow');
+  const hasBatch=pendingCtxIndices&&pendingCtxIndices.length>0;
+  if(batchRow){
+    batchRow.style.display=hasBatch?'flex':'none';
+    if(hasBatch){const cnt=document.getElementById('injectBatchCount');if(cnt)cnt.textContent=pendingCtxIndices.length}
+  }
+  document.getElementById('injectHint').textContent=(!canReplace&&!hasBatch)?'当前无可替换的选中条目，将默认追加。':'';
+  if(!canReplace){document.getElementById('injectModeAppend').checked=true;pendingInjectMode='append'}
+  document.getElementById('injectModal').classList.add('show');
+}
+function closeInjectModal(){document.getElementById('injectModal').classList.remove('show')}
+function updatePendingEntry(i,key,val){if(!pendingInject)return;pendingInject.entries[i][key]=val}
+function applyInject(){
+  if(!pendingInject)return;
+  const mode=pendingInject.mode;
+  const tgt=getInjectTarget(mode);
+  if(!tgt){toast('⚠ 当前模式不支持注入');closeInjectModal();return}
+  const entries=pendingInject.entries.filter(Boolean);
+  if(!entries.length){toast('⚠ 没有可注入的条目');return}
+  let replaced=false;
+  if(pendingInjectMode==='batch'&&pendingCtxIndices&&pendingCtxIndices.length){
+    const idxs=pendingCtxIndices.filter(i=>i>=0&&i<tgt.arr.length);
+    if(idxs.length){
+      idxs.forEach((arrIdx,k)=>{const newE=entries[k];if(newE)tgt.arr[arrIdx]=preserveIdKey(tgt.arr[arrIdx],deepCloneEntry(newE))});
+      for(let k=idxs.length;k<entries.length;k++)tgt.arr.push(deepCloneEntry(entries[k]));
+      tgt.setSel(idxs[idxs.length-1]);
+      replaced=true;
+    }else{
+      entries.forEach(e=>tgt.arr.push(deepCloneEntry(e)));
+      tgt.setSel(tgt.arr.length-1);
+    }
+  }else if(pendingInjectMode==='replace'&&tgt.sel>=0&&tgt.sel<tgt.arr.length){
+    const oldE=tgt.arr[tgt.sel];
+    tgt.arr[tgt.sel]=preserveIdKey(oldE,deepCloneEntry(entries[0]));
+    for(let k=1;k<entries.length;k++)tgt.arr.push(deepCloneEntry(entries[k]));
+    tgt.setSel(tgt.sel);
+    replaced=true;
+  }else{
+    entries.forEach(e=>tgt.arr.push(deepCloneEntry(e)));
+    tgt.setSel(tgt.arr.length-1);
+  }
+  if(mode==='preset')syncPromptOrder();
+  tgt.render();updatePreview();
+  toast(`✅ 已注入 ${entries.length} 条${replaced?'（含批量/选中替换）':''}${tgt.label||''}`);
+  closeInjectModal();
+}
+
+/* ── 🧰 常用内容工具（前端/后端注入输入框） ── */
+function getToolItems(){try{return JSON.parse(localStorage.getItem('st_ai_tools')||'[]')}catch(e){return[]}}
+function saveToolItems(items){localStorage.setItem('st_ai_tools',JSON.stringify(items))}
+function openToolModal(){document.getElementById('toolModal').classList.add('show');renderToolModal()}
+function closeToolModal(){document.getElementById('toolModal').classList.remove('show')}
+function renderToolModal(){
+  const items=getToolItems();
+  const searchEl=document.getElementById('toolSearch');
+  const search=(searchEl?searchEl.value:'').toLowerCase();
+  const list=document.getElementById('toolList');
+  if(!list)return;
+  if(!items.length){list.innerHTML='<p style="color:var(--text-muted);font-size:.74rem;padding:20px;text-align:center">暂无常用内容，点击「＋ 新增」添加</p>';return}
+  const filtered=items.map((it,i)=>({it,i})).filter(x=>!search||(String(x.it.title)+String(x.it.content)).toLowerCase().indexOf(search)>=0);
+  list.innerHTML=filtered.map(({it,i})=>`
+    <div class="inject-card" style="display:flex;gap:8px;align-items:flex-start">
+      <input type="checkbox" class="tool-check" ${toolChecked.has(i)?'checked':''} onchange="toggleToolCheck(${i},this.checked)" style="margin-top:4px;accent-color:var(--accent)" title="勾选后注入输入框"/>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.76rem;font-weight:700">${escHtml(it.title||'未命名')} <span style="font-size:.62rem;color:var(--text-muted)">${it.mode==='back'?'后端':'前端'}</span></div>
+        <pre style="font-size:.7rem;white-space:pre-wrap;color:var(--text-muted);margin:4px 0;max-height:60px;overflow:hidden">${escHtml(String(it.content||'').substring(0,200))}${it.content&&it.content.length>200?'…':''}</pre>
+        <div style="display:flex;gap:10px;align-items:center;font-size:.68rem">
+          <label class="radio-row"><input type="radio" name="mode_${i}" value="front" ${it.mode!=='back'?'checked':''} onchange="toggleToolMode(${i},'front')"/>前端</label>
+          <label class="radio-row"><input type="radio" name="mode_${i}" value="back" ${it.mode==='back'?'checked':''} onchange="toggleToolMode(${i},'back')"/>后端</label>
+          <span style="flex:1"></span>
+          <button class="btn btn-secondary btn-xs" onclick="editToolItem(${i})">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteToolItem(${i})">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function toggleToolMode(i,mode){
+  const items=getToolItems();
+  if(i<0||i>=items.length)return;
+  items[i].mode=mode;
+  saveToolItems(items);
+}
+function toggleToolCheck(i,checked){if(checked)toolChecked.add(i);else toolChecked.delete(i)}
+function editToolItem(i){
+  const items=getToolItems();
+  const editing=(i>=0&&i<items.length);
+  const it=editing?items[i]:{title:'',content:'',mode:'front'};
+  const list=document.getElementById('toolList');
+  if(!list)return;
+  list.innerHTML=`
+    <div class="inject-card">
+      <div class="inject-card-head">${editing?'✏️ 编辑常用内容':'＋ 新增常用内容'}</div>
+      <div class="field-group"><label>标题</label><input type="text" id="toolEditTitle" value="${escHtml(it.title||'')}" placeholder="简短标题"/></div>
+      <div class="field-group"><label>内容</label><textarea id="toolEditContent" rows="4" placeholder="要注入的常用内容">${escHtml(it.content||'')}</textarea></div>
+      <div class="field-group"><label>注入方式</label>
+        <div style="display:flex;gap:14px">
+          <label class="radio-row"><input type="radio" name="toolEditMode" value="front" ${it.mode!=='back'?'checked':''}/>前端注入（输入框最前）</label>
+          <label class="radio-row"><input type="radio" name="toolEditMode" value="back" ${it.mode==='back'?'checked':''}/>后端注入（输入框最后）</label>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="renderToolModal()">取消</button>
+        <button class="btn btn-primary btn-sm" onclick="saveToolItem(${i})">💾 保存</button>
+      </div>
+    </div>`;
+}
+function saveToolItem(i){
+  const title=document.getElementById('toolEditTitle').value.trim();
+  const content=document.getElementById('toolEditContent').value;
+  const modeSel=document.querySelector('input[name="toolEditMode"]:checked');
+  const mode=(modeSel&&modeSel.value==='back')?'back':'front';
+  if(!content.trim()){toast('⚠ 内容不能为空');return}
+  const items=getToolItems();
+  if(i>=0&&i<items.length)items[i]={title:title||'未命名',content,mode};
+  else items.push({title:title||'未命名',content,mode});
+  saveToolItems(items);
+  renderToolModal();
+  toast('✅ 已保存常用内容');
+}
+function deleteToolItem(i){
+  const items=getToolItems();
+  if(i<0||i>=items.length)return;
+  if(!confirm('确定删除该常用内容？'))return;
+  items.splice(i,1);
+  toolChecked.delete(i);
+  saveToolItems(items);
+  renderToolModal();
+  toast('🗑 已删除');
+}
+function injectToolsToInput(){
+  const items=getToolItems();
+  const selected=Array.from(toolChecked).filter(i=>i>=0&&i<items.length).sort((a,b)=>a-b);
+  if(!selected.length){toast('⚠ 请先勾选要注入的内容');return}
+  const front=selected.filter(i=>items[i].mode!=='back').map(i=>items[i].content);
+  const back=selected.filter(i=>items[i].mode==='back').map(i=>items[i].content);
+  const orig=document.getElementById('aiInput').value;
+  const parts=[];
+  if(front.length)parts.push(front.join('\n'));
+  if(orig)parts.push(orig);
+  if(back.length)parts.push(back.join('\n'));
+  document.getElementById('aiInput').value=parts.join('\n');
+  document.getElementById('aiInput').focus();
+  toolChecked=new Set();
+  renderToolModal();
+  toast(`✅ 已注入 ${selected.length} 条常用内容到输入框`);
+}
+
+/* ── 💾 聊天存档 ── */
+function getArchives(){try{return JSON.parse(localStorage.getItem('st_ai_chat_archives')||'[]')}catch(e){return[]}}
+function saveArchives(list){localStorage.setItem('st_ai_chat_archives',JSON.stringify(list))}
+function openArchiveModal(){document.getElementById('archiveModal').classList.add('show');renderArchiveModal()}
+function closeArchiveModal(){document.getElementById('archiveModal').classList.remove('show')}
+function renderArchiveModal(){
+  const list=getArchives();
+  const box=document.getElementById('archiveList');
+  const cnt=document.getElementById('archiveCount');
+  if(cnt)cnt.textContent=list.length;
+  if(!box)return;
+  if(!list.length){box.innerHTML='<p style="color:var(--text-muted);font-size:.74rem;padding:20px;text-align:center">暂无存档</p>';return}
+  box.innerHTML=list.map((a,i)=>`
+    <div class="inject-card" style="display:flex;gap:8px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.76rem;font-weight:700">${escHtml(a.note||'（无备注）')}</div>
+        <div style="font-size:.64rem;color:var(--text-muted)">${new Date(a.time).toLocaleString()} · ${a.messages?a.messages.length:0} 条消息</div>
+      </div>
+      <button class="btn btn-primary btn-xs" onclick="loadChatArchive(${i})">📥 载入</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteChatArchive(${i})">🗑</button>
+    </div>`).join('');
+}
+function saveChatArchive(){
+  if(!aiMessages.length){toast('⚠ 当前没有可存档的对话');return}
+  const note=document.getElementById('archiveNote').value.trim();
+  const list=getArchives();
+  list.push({note:note||'未命名存档',time:Date.now(),messages:JSON.parse(JSON.stringify(aiMessages))});
+  saveArchives(list);
+  document.getElementById('archiveNote').value='';
+  renderArchiveModal();
+  toast('✅ 已存档当前对话');
+}
+function loadChatArchive(i){
+  const list=getArchives();
+  if(i<0||i>=list.length)return;
+  aiMessages=JSON.parse(JSON.stringify(list[i].messages||[]));
+  renderAIChatFromMessages(aiMessages);
+  closeArchiveModal();
+  toast('📥 已载入存档');
+}
+function deleteChatArchive(i){
+  const list=getArchives();
+  if(i<0||i>=list.length)return;
+  if(!confirm('确定删除该存档？'))return;
+  list.splice(i,1);
+  saveArchives(list);
+  renderArchiveModal();
+  toast('🗑 已删除存档');
+}
+function renderAIChatFromMessages(messages){
+  const area=document.getElementById('aiChatArea');
+  if(!area)return;
+  area.innerHTML='';
+  if(!messages||!messages.length){area.innerHTML='<div class="ai-msg system">💡 对话已清空。点击「注入上下文」将当前编辑内容发送给 AI 作为参考。</div>';return}
+  messages.forEach(m=>{
+    const div=document.createElement('div');
+    div.className='ai-msg '+(m.role==='user'?'user':m.role==='assistant'?'assistant':'system');
+    div.textContent=m.content;
+    area.appendChild(div);
+  });
+  area.scrollTop=area.scrollHeight;
 }
 
 // Auto-load AI config on startup
@@ -2814,8 +3416,8 @@ function renderPersonaCards(filterTag,searchText){
 }
 function filterPersonaCards(){var s=document.getElementById("cpSearch");renderPersonaCards("all",s?s.value:"")}
 function addCustomPersona(){var cp=window._customAI||[];cp.push({name:"新助手",tags:"通用",prompt:"你是一个有用的助手。请用中文回复。"});localStorage.setItem("st_custom_ai",JSON.stringify(cp));window._customAI=cp;loadCustomPersonas();showCustomPersonaModal();toast("✅ 已创建")}
-function editCustomPersona(i){var cp=window._customAI||[];if(i>=cp.length)return;var p=cp[i];var h="";h+="<div class='field-group'><label>名称</label><input type='text' id='cpName' value='"+p.name.replace(/'/g,"&#39;")+"'></div>";h+="<div class='field-group'><label>标签</label><input type='text' id='cpTags' value='"+(p.tags||"通用")+"'></div>";h+="<div class='field-group'><label>提示词</label><textarea id='cpPrompt' rows='8'>"+p.prompt.replace(/</g,"&lt;")+"</textarea></div>";h+="<button class='btn btn-primary btn-sm' onclick='saveCustomPersona("+i+")'>💾</button>";showGM("✏️ 编辑",h)}
-function saveCustomPersona(i){var cp=window._customAI||[];if(i>=cp.length)return;cp[i].name=document.getElementById("cpName").value||"助手";cp[i].tags=document.getElementById("cpTags").value||"通用";cp[i].prompt=document.getElementById("cpPrompt").value||"";localStorage.setItem("st_custom_ai",JSON.stringify(cp));window._customAI=cp;loadCustomPersonas();showCustomPersonaModal();toast("✅ 已保存")}
+function editCustomPersona(i){var cp=window._customAI||[];if(i>=cp.length)return;var p=cp[i];var h="";h+="<div class='field-group'><label>名称</label><input type='text' id='cpName' value='"+p.name.replace(/'/g,"&#39;")+"'></div>";h+="<div class='field-group'><label>标签</label><input type='text' id='cpTags' value='"+(p.tags||"通用")+"'></div>";h+="<div class='field-group'><label>提示词</label><textarea id='cpPrompt' rows='8'>"+p.prompt.replace(/</g,"&lt;")+"</textarea></div>";h+="<div style='margin:8px 0;padding-top:6px;border-top:1px solid var(--border)'><label style='font-size:.7rem;font-weight:700;color:var(--text-muted)'>🎛 采样参数（留空 = 跟随全局）</label><div class='field-row' style='margin-top:6px'><div><span class='sub-label'>temperature</span><input type='number' id='cpTemperature' min='0' max='2' step='0.01' value='"+ (p.temperature??'') +"'></div><div><span class='sub-label'>top_p</span><input type='number' id='cpTopP' min='0' max='1' step='0.01' value='"+ (p.top_p??'') +"'></div></div><div class='field-row' style='margin-top:6px'><div><span class='sub-label'>max_tokens</span><input type='number' id='cpMaxTokens' min='256' max='128000' step='1' value='"+ (p.max_tokens??'') +"'></div><div><span class='sub-label'>frequency_penalty</span><input type='number' id='cpFreq' min='-2' max='2' step='0.1' value='"+ (p.frequency_penalty??'') +"'></div><div><span class='sub-label'>presence_penalty</span><input type='number' id='cpPresence' min='-2' max='2' step='0.1' value='"+ (p.presence_penalty??'') +"'></div></div></div>";h+="<button class='btn btn-primary btn-sm' onclick='saveCustomPersona("+i+")'>💾</button>";showGM("✏️ 编辑",h)}
+function saveCustomPersona(i){var cp=window._customAI||[];if(i>=cp.length)return;cp[i].name=document.getElementById("cpName").value||"助手";cp[i].tags=document.getElementById("cpTags").value||"通用";cp[i].prompt=document.getElementById("cpPrompt").value||"";cp[i].temperature=numPersonaParam("cpTemperature",0,2);cp[i].top_p=numPersonaParam("cpTopP",0,1);cp[i].max_tokens=numPersonaParam("cpMaxTokens",256,128000);cp[i].frequency_penalty=numPersonaParam("cpFreq",-2,2);cp[i].presence_penalty=numPersonaParam("cpPresence",-2,2);localStorage.setItem("st_custom_ai",JSON.stringify(cp));window._customAI=cp;loadCustomPersonas();showCustomPersonaModal();toast("✅ 已保存")}
 function deleteCustomPersona(i){var cp=window._customAI||[];if(i>=cp.length)return;if(!confirm("删除"))return;cp.splice(i,1);localStorage.setItem("st_custom_ai",JSON.stringify(cp));window._customAI=cp;loadCustomPersonas();showCustomPersonaModal();toast("🗑 已删除")}
 
 function loadCustomPersonas(){
@@ -2823,7 +3425,7 @@ function loadCustomPersonas(){
   var sel=document.getElementById('aiPersonaSelect');if(!sel)return;
   var cur=sel.value;
   sel.innerHTML='<option value="caelum">🌌 山停 · 万能辅助</option><option value="ying">🎭 影 · 角色塑造</option><option value="xian">🎪 弦 · 情节设计</option><option value="rang">🌍 壤 · 世界观构筑</option>';
-  cp.forEach(function(p){var k='cust_'+p.name.replace(/[^a-z0-9\u4e00-\u9fa5]/gi,'');AI_PERSONAS[k]={name:p.name,icon:p.icon,prompt:p.prompt,_default:p.prompt};sel.innerHTML+='<option value="'+k+'">💬 '+p.name+'</option>'});
+  cp.forEach(function(p){var k='cust_'+p.name.replace(/[^a-z0-9\u4e00-\u9fa5]/gi,'');AI_PERSONAS[k]={name:p.name,icon:p.icon,prompt:p.prompt,_default:p.prompt,params:{temperature:p.temperature??null,top_p:p.top_p??null,max_tokens:p.max_tokens??null,frequency_penalty:p.frequency_penalty??null,presence_penalty:p.presence_penalty??null}};sel.innerHTML+='<option value="'+k+'">💬 '+p.name+'</option>'});
   if(cur)sel.value=cur;
 }
 
